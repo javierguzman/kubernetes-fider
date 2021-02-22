@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feedback-server-deployment-$VERSION
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      subsystem: feedback-server-$VERSION
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 50%
+      maxUnavailable: 50%
+  template:
+    metadata:
+      labels:
+        subsystem: feedback-server-$VERSION
+    spec:
+      initContainers:
+        - name: wait-for-database
+          image: busybox:1.32
+          command: ['sh', '-c', 'until nslookup feedback-database-service-$VERSION; do echo waiting for database; sleep 2; done;']
+      containers:
+        - name: feedback-server-$VERSION
+          image: getfider/fider:0.18.0
+          ports:
+            - containerPort: 3000
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-user-$VERSION
+                  key:  postgres-user-$VERSION
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-password-$VERSION
+                  key: postgres-password-$VERSION
+            - name: GO_ENV
+              value: production
+            - name: HOST_DOMAIN
+              value: $FEEDBACK_HOST
+            - name: DATABASE_URL
+              value: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@feedback-database-service-$VERSION:5432/feedback-database?sslmode=disable
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: feedback-jwt-secret-$VERSION
+                  key: feedback-jwt-secret-$VERSION
+            - name: EMAIL_NOREPLY
+              value: YOUR_EMAIL
+            - name: EMAIL_SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: feedback-smtp-host-$VERSION
+                  key: feedback-smtp-host-$VERSION
+            - name: EMAIL_SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: feedback-smtp-port-$VERSION
+                  key: feedback-smtp-port-$VERSION
+            - name: EMAIL_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: feedback-smtp-username-$VERSION
+                  key: feedback-smtp-username-$VERSION
+            - name: EMAIL_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: feedback-smtp-password-$VERSION
+                  key: feedback-smtp-password-$VERSION
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+      imagePullSecrets:
+        - name: MY_REGISTRY_CREDENTIALS (TO BE REPLACED)
+

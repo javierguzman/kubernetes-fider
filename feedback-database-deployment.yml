@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feedback-database-deployment-$VERSION
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      subsystem: feedback-database-$VERSION
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        subsystem: feedback-database-$VERSION
+    spec:
+      volumes:
+        - name: feedback-database-storage-$VERSION
+          persistentVolumeClaim:
+            claimName: feedback-database-persistent-volume-claim-$VERSION
+      containers:
+        - name: feedback-database-$VERSION
+          image: POSTGRES_IMAGE_URL (TO BE REPLACED, it can be used the official image from docker hub)
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: feedback-database-storage-$VERSION
+              mountPath: /var/lib/postgresql/data
+              subPath: feedback-data
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-user-$VERSION
+                  key:  postgres-user-$VERSION
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-password-$VERSION
+                  key: postgres-password-$VERSION
+            - name: PGDATA
+              value: /var/lib/postgresql/data/feedback-data
+            - name: POSTGRES_DB
+              value: feedback-database
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -h
+                - localhost
+                - -d
+                - feedback-database
+                - -U
+                - $POSTGRES_USER
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -h
+                - localhost
+                - -d
+                - feedback-database
+                - -U
+                - $POSTGRES_USER
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      imagePullSecrets:
+        - name: MY_REGISTRY_CRENDETIALS (TO BE REPLACED)

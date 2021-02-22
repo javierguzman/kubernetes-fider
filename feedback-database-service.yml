@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: feedback-database-service-$VERSION
+spec:
+  type: ClusterIP
+  selector:
+    subsystem: feedback-database-$VERSION
+  ports:
+    - port: 5432
+      targetPort: 5432
